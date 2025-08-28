@@ -13,6 +13,92 @@ It's used pretty much everywhere, IOS,Firefox,Chrome.
 As of below we have a car, you can turn it on and it will start, but there is no gas pedal, any type of fuctionality is missing as of now.
 No commands work, you can only exit and start it.
 
+As I go, I won't be explaining every line of code, I don't have to define what a struct is in C
+Or why I serialize/deserialize rows and why there is a function for that
 
 /*** 2025-08-25 ***/
-We Now 
+We have now added some interesting features so this very simple database. As of now we only insert id's Usernames, and emails which looks like this 
+column	size (bytes)  offset
+id	      4	            0
+username  32	 		4
+email	  255			36
+total	  291
+
+Our page size right now is only 4 kilobytes, it's the same size as a page used in the virtual memory of most computer architectures. Meaning one page in our database
+corresponds to one page used by the operating system.
+The plan so far is to:
+    Store rows in blocks of memory called pages
+    Each page stores as many rows as it can fit
+    Rows are serialized into a compact representation with each page
+    Pages are only allocated as needed
+    Keep a fixed-size array of pointers to pages
+
+```
+const uint32_t PAGE_SIZE = 4096;
+const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+typedef struct {
+	uint32_t num_rows;
+	void* pages[TABLE_MAX_PAGES];
+} Table;
+```
+
+Preparing our statements no longer uses scanf() which could cause a buffer overflow if the string
+it's reading is larger than the buffer it's reading into. Strtok() fixes this issue in our prepare_insert() function
+Calling strtok successively on the input buffer breaks it into substrings by inserting a null character whenever it reaches a delimiter (space, in our case). It returns a pointer to the start of the substring.
+
+We can call strlen() on each text value to see if it’s too long.
+```
+PrepareResult prepare_insert(InputBuffer* input_buffer, Statement* statement){
+    statement->type = STATEMENT_INSERT;
+
+    char* keyword = strtok(input_buffer->buffer, " ");
+    char* id_string = strtok(NULL, " " );
+    char* username = strtok(NULL," ");
+    char* email = strtok(NULL, " ");
+
+    if(id_string = NULL || username == NULL || email == NULL){
+        return PREPARE_SYNTAX_ERROR;
+    }
+
+    int id = atoi(id_string);
+    if(id<0){
+        return PREPARE_NEGATIVE_ID;
+    }
+    if(strlen(email) > COLUMN_EMAIL_SIZE) {
+        return PREPARE_STRING_TOO_LONG;
+    }
+
+    statement->row_to_insert.id = id;
+    strcpy(statment->row_to_insert.username,username);
+    strcpy(statment->row_to_insert.email,email);
+
+    return PREPARE_SUCCESS
+}
+```
+
+We also have our SYNTAX ERROR HANDLER, still better than java.
+Side tangent, why can't we just stay in C? why does everything in Java need to be so repetitive.
+also EVERYTHING is a class (except for when it's not) I feel like im tip toeing around a problem when I code in java wheras in C it's like all meat no filler, delicious
+
+I only complain about java when I don't have to maintain any code, I'm not building enterprise-scale applications lol
+```
+Statement statement;
+	switch(prepare_statement(input_buffer, &statement)){
+		case(PREPARE_SUCCESS):
+			break;
+        case(PREPARE_NEGATIVE_ID):
+            printf("ID must be positive.\n");
+            break;
+        case(PREPARE_STRING_TOO_LONG):
+            printf("String is too long.\n");
+            break;
+		case(PREPARE_SYNTAX_ERROR):
+			printf("Syntax error. Could not parse statement.");
+			continue;
+		case(PREPARE_UNRECOGNIZED_STATEMENT):
+			printf("Unrecognized keyword at start of '%s'.\n", input_buffer->buffer);
+			continue;
+	}
+```
