@@ -90,10 +90,10 @@ Statement statement;
 			break;
         case(PREPARE_NEGATIVE_ID):
             printf("ID must be positive.\n");
-            break;
+            continue;
         case(PREPARE_STRING_TOO_LONG):
             printf("String is too long.\n");
-            break;
+            continue;
 		case(PREPARE_SYNTAX_ERROR):
 			printf("Syntax error. Could not parse statement.");
 			continue;
@@ -101,4 +101,37 @@ Statement statement;
 			printf("Unrecognized keyword at start of '%s'.\n", input_buffer->buffer);
 			continue;
 	}
+```
+Now we will talk about spec_helper, some ruby tests that are written up so I don't have to keep testing the code
+it's pretty readable, (like python, except when its not) I won't go in depth
+```
+describe 'database' do
+  def run_script(commands)
+    raw_output = nil
+    IO.popen("./db", "r+") do |pipe|
+      commands.each do |command|
+        pipe.puts command
+      end
+
+      pipe.close_write
+
+      # Read entire output
+      raw_output = pipe.gets(nil)
+    end
+    raw_output.split("\n")
+  end
+
+  it 'inserts and retrieves a row' do
+    result = run_script([
+      "insert 1 user1 person1@example.com",
+      "select",
+      ".exit",
+    ])
+    expect(result).to match_array([
+      "db > Executed.",
+      "db > (1, user1, person1@example.com)",
+      "Executed.",
+      "db > ",
+    ])
+  end
 ```
