@@ -135,3 +135,76 @@ describe 'database' do
     ])
   end
 ```
+Implementing a B-tree in this database. As of now we aren't using them, which is causing some headaches with memory management
+Using a B-Tree is faster (log time), inserting/deleting a value you've already found is fast, and traversing a range of values it fast
+(unless the tree is not a B-Tree in which it could resemble a linked list which is O(n) time to traverse)
+ 	Unsorted Array of rows	Sorted Array of rows	Tree of nodes
+Pages contain	only data	only data	metadata, primary keys, and data
+Rows per page	more	more	fewer
+Insertion	O(1)	O(n)	O(log(n))
+Deletion	O(n)	O(n)	O(log(n))
+Lookup by id	O(n)	O(log(n))	O(log(n))
+
+Implementation could be an array (slow for insertions) so lets use a tree structure for that juice O(log(n)) time!
+Only thing is we can't use a binary search to find values because not an array. 
+
+Leaf nodes and internal nodes have different layouts. Let’s make an enum to keep track of node type:
+```
+typedef enum { NODE_INTERNAL, NODE_LEAF } NodeType;
+```
+
+To Reiterate, the Pager is an abstraction that when asked for page number x, the pager gives us back
+a block of memory. First looking in the cache then on cache miss copies from the disk to memory
+
+Each node will correspond to one page. Internal nodes will point to their children by storing the page number that stores the child. 
+The btree asks the pager for a particular page number and gets back a pointer into the page cache. 
+Pages are stored in the database file one after the other in order of page number.
+
+Nodes need to store some metadata in a header at the beginning of the page. 
+Every node will store what type of node it is, whether or not it is the root node, 
+and a pointer to its parent (to allow finding a node’s siblings). 
+I define constants for the size and offset of every header field:
+
+
+
+```
+/* Common Node Layout */
+/* Each node corresponds to one page, Internal nodes point to children by storing the page number that store the child
+   The btree asks the pager for partic page number and gets back a pointer into the page cache. Pages are stored 
+   in the databse file one after theo ther in order of page number.*/
+
+/*Nodes need to store some metadata in a header at the beginning of the page.*/
+const uint32_t NODE_TYPE_SIZE = sizeof(uint8_t);
+const uint32_t NODE_TYPE_OFFSET = 0;
+const uint32_t IS_ROOT_SIZE = sizeof(uint8_t);
+const uint32_t IS_ROOT_OFFSET = sizeof( NODE_TYPE_SIZE);
+const uint32_t PARENT_POINTER_SIZE = sizeof(uint32_t);
+const uint32_t PARENT_POINTER_OFFSET = IS_ROOT_OFFSET + IS_ROOT_SIZE;
+const uint8_t COMMON_NODE_HEADER_SIZE = NODE_TYPE_SIZE + IS_ROOT_SIZE + PARENT_POINTER_SIZE;
+
+
+/* Leaf Node Header Layout */
+/* Leaf nodes also need to store how many "cells' they contrain. A cell is a key/value pair"*/
+const uint32_t LEAF_NODE_NUM_CELLS_SIZE = sizeof(uint32_t);
+const uint32_t LEAF_NODE_NUM_CELLS_OFFSET = COMMON_NODE_HEADER_SIZE;
+const uint32_t LEAF_NODE_HEADER_SIZE = COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE;
+
+/* Leaf Node Body Layout */
+const uint32_t LEAF_NODE_KEY_SIZE = sizeof(uint32_t);
+const uint32_t LEAF_NODE_KEY_OFFSET = 0;
+const uint32_t LEAF_NODE_VALUE_SIZE = ROW_SIZE;
+const uint32_t LEAF_NODE_VALUE_OFFSET =
+    LEAF_NODE_KEY_OFFSET + LEAF_NODE_KEY_SIZE;
+const uint32_t LEAF_NODE_CELL_SIZE = LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE;
+const uint32_t LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_HEADER_SIZE;
+const uint32_t LEAF_NODE_MAX_CELLS =
+    LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE;
+```
+Based on these constants, here's what the layout of a leaf node looks like currently
+leaf-node-format.png
+
+Now I'm sure you all read through and saw my rant with java earlier but I will admit, this is
+where Java shines, why create getters/setters in the same file, why not just create a tree class
+that stores all this information and create an object in the db.java file, where everything is all
+neat and abstracted from the user, well because C doesn't have that functionality unfortunately. Anyways...
+
