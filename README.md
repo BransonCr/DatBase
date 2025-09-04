@@ -18,11 +18,13 @@ Or why I serialize/deserialize rows and why there is a function for that
 
 /*** 2025-08-25 ***/
 We have now added some interesting features so this very simple database. As of now we only insert id's Usernames, and emails which looks like this 
-column	size (bytes)  offset
-id	      4	            0
-username  32	 		4
-email	  255			36
-total	  291
+| column   | size (bytes) | offset |
+|----------|--------------|--------|
+| id       | 4            | 0      |
+| username | 32           | 4      |
+| email    | 255          | 36     |
+| total    | 291          |        |
+
 
 Our page size right now is only 4 kilobytes, it's the same size as a page used in the virtual memory of most computer architectures. Meaning one page in our database
 corresponds to one page used by the operating system.
@@ -314,7 +316,7 @@ void create_new_root(Table* table, uint32_t right_child_page_num){
 Notice our huge branching factor. Because each child pointer / key pair is so small, we can fit 510 keys and 511 child pointers in each internal node.
  That means we’ll never have to traverse many layers of the tree to find a given key!
 
-# internal node layers, max # leaf nodes, Size of all leaf nodes
+internal node layers, max # leaf nodes, Size of all leaf nodes
 | internal node layers | max # leaf nodes    | Size of all leaf nodes  |
 |----------------------|---------------------|-------------------------|
 | 0                    | 511^0 = 1           | 4 KB                    |
@@ -331,7 +333,6 @@ To do that, we’re going to save a new field in the leaf node header called “
 which will hold the page number of the leaf’s sibling node on the right. 
 The rightmost leaf node will have a next_leaf value of 0 to denote no sibling (page 0 is reserved for the root node of the table anyway).
 
-```c
 At this point in my writing, I have 11 tests, only 2 of which pass, this is something I will do later...
 Our next step is to handle fixing up the parent node after splitting a leaf.
  
@@ -339,11 +340,11 @@ NOte I did that, it was hard to understand but after literally drawing it, it wa
 But now I'm implementing a step above that, what happens when we split internal nodes which are unable 
 to accomodate new keys. This would result in a new top node with 2 new internal nodes and appointing the children/
 leaf nodes correctly to maintain continuity.
- in which
-    1.Create a sibling node to store (n-1)/2 of the original node’s keys
-    2.Move these keys from the original node to the sibling node
-    3.Update the original node’s key in the parent to reflect its new max key after splitting
-    4.Insert the sibling node into the parent (could result in the parent also being split)
+in which
+    1. Create a sibling node to store (n-1)/2 of the original node’s keys
+    2. Move these keys from the original node to the sibling node
+    3. Update the original node’s key in the parent to reflect its new max key after splitting
+    4. Insert the sibling node into the parent (could result in the parent also being split)
 Here is the new method internal_node_split_and_insert
 ```c
 void internal_node_insert(Table* table, uint32_t parent_page_num, uint32_t child_page_num){
@@ -442,4 +443,5 @@ void initialize_internal_node(void* node){
     *internal_node_right_child(node) = INVALID_PAGE_NUM;
 }
 ```
+
 
