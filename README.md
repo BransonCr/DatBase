@@ -140,10 +140,13 @@ Using a B-Tree is faster (log time), inserting/deleting a value you've already f
 (unless the tree is not a B-Tree in which it could resemble a linked list which is O(n) time to traverse)
  	Unsorted Array of rows	Sorted Array of rows	Tree of nodes
 Pages contain	only data	only data	metadata, primary keys, and data
-Rows per page	more	more	fewer
-Insertion	O(1)	O(n)	O(log(n))
-Deletion	O(n)	O(n)	O(log(n))
-Lookup by id	O(n)	O(log(n))	O(log(n))
+|                     | Unsorted Array of rows | Sorted Array of rows | Tree of nodes |
+|---------------------|------------------------|----------------------|---------------|
+| Rows per page       | more                   | more                 | fewer         |
+| Insertion           | O(1)                   | O(n)                 | O(log(n))     |
+| Deletion            | O(n)                   | O(n)                 | O(log(n))     |
+| Lookup by id        | O(n)                   | O(log(n))            | O(log(n))     |
+
 
 Implementation could be an array (slow for insertions) so lets use a tree structure for that juice O(log(n)) time!
 Only thing is we can't use a binary search to find values because not an array. 
@@ -311,11 +314,14 @@ void create_new_root(Table* table, uint32_t right_child_page_num){
 Notice our huge branching factor. Because each child pointer / key pair is so small, we can fit 510 keys and 511 child pointers in each internal node.
  That means we’ll never have to traverse many layers of the tree to find a given key!
 
-# internal node layers	max # leaf nodes	Size of all leaf nodes
-0	511^0 = 1	4 KB
-1	511^1 = 512	~2 MB
-2	511^2 = 261,121	~1 GB
-3	511^3 = 133,432,831	~550 GB
+# internal node layers, max # leaf nodes, Size of all leaf nodes
+| internal node layers | max # leaf nodes    | Size of all leaf nodes  |
+|----------------------|---------------------|-------------------------|
+| 0                    | 511^0 = 1           | 4 KB                    |
+| 1                    | 511^1 = 512         | ~2 MB                   |
+| 2                    | 511^2 = 261,121     | ~1 GB                   |
+| 3                    | 511^3 = 133,432,831 | ~550 GB                 |
+
 
 
 As of now 
@@ -324,6 +330,7 @@ To scan the entire table, we need to jump to the second leaf node after we reach
 To do that, we’re going to save a new field in the leaf node header called “next_leaf”, 
 which will hold the page number of the leaf’s sibling node on the right. 
 The rightmost leaf node will have a next_leaf value of 0 to denote no sibling (page 0 is reserved for the root node of the table anyway).
+
 ```c
 At this point in my writing, I have 11 tests, only 2 of which pass, this is something I will do later...
 Our next step is to handle fixing up the parent node after splitting a leaf.
@@ -435,3 +442,4 @@ void initialize_internal_node(void* node){
     *internal_node_right_child(node) = INVALID_PAGE_NUM;
 }
 ```
+
